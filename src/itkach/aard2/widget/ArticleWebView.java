@@ -1,7 +1,9 @@
 package itkach.aard2.widget;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.Color;
@@ -9,18 +11,22 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Handler;
+import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.webkit.JavascriptInterface;
+import android.webkit.ValueCallback;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.webkit.WebSettingsCompat;
 import androidx.webkit.WebViewClientCompat;
+import androidx.webkit.WebViewFeature;
 
 import com.google.android.material.color.MaterialColors;
 
@@ -39,13 +45,14 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.TreeSet;
 
+import itkach.aard2.Application;
 import itkach.aard2.R;
 import itkach.aard2.SlobHelper;
 import itkach.aard2.article.ArticleCollectionActivity;
 import itkach.aard2.descriptor.BlobDescriptor;
 import itkach.aard2.prefs.ArticleViewPrefs;
 import itkach.aard2.prefs.UserStylesPrefs;
-import itkach.aard2.utils.StyleJsUtils;
+import itkach.aard2.utils.AssetUtils;
 import itkach.aard2.utils.Utils;
 
 public class ArticleWebView extends SearchableWebView {
@@ -114,8 +121,21 @@ public class ArticleWebView extends SearchableWebView {
         settings.setJavaScriptEnabled(!ArticleViewPrefs.disableJavaScript());
         settings.setBuiltInZoomControls(true);
         settings.setDisplayZoomControls(false);
+
+
         if (ArticleViewPrefs.enableForceDark()) {
-            WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, true);
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
+
+                WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, true);
+            } else {
+                if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
+                    int nightModeFlags = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
+                    if (nightModeFlags == Configuration.UI_MODE_NIGHT_YES) {
+                        //Theme is switched to Night/Dark mode, turn on webview darkening
+                        WebSettingsCompat.setForceDark(settings, WebSettingsCompat.FORCE_DARK_ON);
+                    }
+                }
+            }
         }
 
         Resources r = getResources();
@@ -139,7 +159,6 @@ public class ArticleWebView extends SearchableWebView {
         };
 
         setWebViewClient(new WebViewClient());
-
         setOnLongClickListener(view -> {
             HitTestResult hitTestResult = getHitTestResult();
             int resultType = hitTestResult.getType();
@@ -148,7 +167,7 @@ public class ArticleWebView extends SearchableWebView {
                     resultType,
                     hitTestResult.getExtra()));
             if (resultType == HitTestResult.SRC_ANCHOR_TYPE ||
-                    resultType == HitTestResult.SRC_IMAGE_ANCHOR_TYPE) {
+                        resultType == HitTestResult.SRC_IMAGE_ANCHOR_TYPE) {
                 String url = hitTestResult.getExtra();
                 Uri uri = Uri.parse(url);
                 if (isExternal(uri)) {
@@ -160,6 +179,7 @@ public class ArticleWebView extends SearchableWebView {
                     return true;
                 }
             }
+
             return false;
         });
 
@@ -218,10 +238,10 @@ public class ArticleWebView extends SearchableWebView {
         if (UserStylesPrefs.hasStyle(styleTitle)) {
             String css = UserStylesPrefs.getStylesheet(styleTitle);
             String elementId = getCurrentSlobId();
-            js = String.format("javascript:" + StyleJsUtils.getUserStyleJs(), elementId, css);
+            js = String.format("javascript:" + AssetUtils.getAssetAsString("userstyle.js"), elementId, css);
         } else {
             js = String.format(
-                    "javascript:" + StyleJsUtils.getClearUserStyleJs() + StyleJsUtils.getSetCannedStyleJs(),
+                    "javascript:" + AssetUtils.getAssetAsString("clearuserstyle.js") + AssetUtils.getAssetAsString("setcannedstyle.js"),
                     getCurrentSlobId(), styleTitle);
         }
         if (Log.isLoggable(TAG, Log.DEBUG)) {
@@ -287,6 +307,21 @@ public class ArticleWebView extends SearchableWebView {
     public void onStyleSet(String title) {
         Log.d(TAG, "Style set! " + title);
         applyStylePref.cancel();
+    }
+
+    @JavascriptInterface
+    public void onWordTapped(String tappedWord) {
+        Log.d(TAG, "Word tapped! " + tappedWord);
+
+        if (!TextUtils.isEmpty(tappedWord) && tappedWord.length() > 1) {
+            Activity activity = (Activity) getContext();
+            if (activity != null) {
+                activity.runOnUiThread(() -> {
+                    Toast.makeText(activity, "Look up: " + tappedWord, Toast.LENGTH_SHORT).show();
+                    Application.get().lookupAsync(tappedWord);
+                });
+            }
+        }
     }
 
     public void applyStylePref() {
@@ -404,7 +439,7 @@ public class ArticleWebView extends SearchableWebView {
                 tsList = new ArrayList<>();
                 times.put(url, tsList);
                 tsList.add(System.currentTimeMillis());
-                view.loadUrl("javascript:" + StyleJsUtils.getStyleSwitcherJs());
+                view.loadUrl("javascript:" + AssetUtils.getAssetAsString("styleswitcher.js"));
                 try {
                     timer.schedule(applyStylePref, 250, 200);
                 } catch (IllegalStateException ex) {
@@ -434,7 +469,15 @@ public class ArticleWebView extends SearchableWebView {
             } else {
                 Log.w(TAG, "onPageFinished: Unexpected page finished event for " + url);
             }
-            view.loadUrl("javascript:" + StyleJsUtils.getStyleSwitcherJs() + ";$SLOB.setStyleTitles($styleSwitcher.getTitles())");
+
+            String js = AssetUtils.getAssetAsString("styleswitcher.js") + ";$SLOB.setStyleTitles($styleSwitcher.getTitles());" +
+                                AssetUtils.getAssetAsString("touchhandler.js");
+            view.evaluateJavascript(js, new ValueCallback<String>() {
+                @Override
+                public void onReceiveValue(String value) {
+                    Log.d(TAG, "callback result: " + value);
+                }
+            });
             applyStylePref();
         }
 
@@ -473,9 +516,9 @@ public class ArticleWebView extends SearchableWebView {
                 Uri current = Uri.parse(view.getUrl());
                 Log.d(TAG, "shouldOverrideUrlLoading URL with fragment: " + uri);
                 if (scheme.equals(current.getScheme()) &&
-                        host.equals(current.getHost()) &&
-                        uri.getPort() == current.getPort() &&
-                        uri.getPath().equals(current.getPath())) {
+                            host.equals(current.getHost()) &&
+                            uri.getPort() == current.getPort() &&
+                            uri.getPath().equals(current.getPath())) {
                     Log.d(TAG, "NOT overriding loading of same page link " + uri);
                     return false;
                 }

@@ -56,12 +56,10 @@ public class ArticleViewPrefs extends Prefs {
     }
 
     public static boolean enableForceDark() {
-        return WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING) &&
-                getInstance().prefs.getBoolean("force_dark", true);
+        return getInstance().prefs.getBoolean("force_dark", true);
     }
 
     public static void setEnableForceDark(boolean enableForceDark) {
-        enableForceDark &= WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING);
         getInstance().prefs.edit().putBoolean("force_dark", enableForceDark).apply();
     }
 

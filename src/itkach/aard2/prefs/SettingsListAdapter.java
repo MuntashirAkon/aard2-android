@@ -191,7 +191,8 @@ public class SettingsListAdapter extends RecyclerView.Adapter<SettingsListAdapte
         View view = holder.itemView;
         MaterialSwitch toggle = view.findViewById(R.id.setting_switch);
         toggle.setText(R.string.setting_enable_force_dark_web_view);
-        toggle.setEnabled(WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING));
+        toggle.setEnabled(WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)
+                || WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK));
         toggle.setOnClickListener(v -> {
             boolean currentValue = ArticleViewPrefs.enableForceDark();
             boolean newValue = !currentValue;

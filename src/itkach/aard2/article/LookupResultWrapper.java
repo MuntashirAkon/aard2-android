@@ -1,6 +1,7 @@
 package itkach.aard2.article;
 
 import android.database.DataSetObserver;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -9,6 +10,9 @@ import itkach.aard2.lookup.LookupResult;
 import itkach.slob.Slob;
 
 class LookupResultWrapper implements BlobListWrapper {
+
+    protected static final String TAG = "AARD-LRW";
+
     interface ToBlob<T> {
         @Nullable
         Slob.Blob convert(T item);
@@ -42,7 +46,12 @@ class LookupResultWrapper implements BlobListWrapper {
     @Nullable
     @Override
     public CharSequence getLabel(int index) {
-        Slob.Blob item = lookupResult.getList().get(index);
+        Slob.Blob item = null;
+        if(index < lookupResult.getList().size()) {
+            item = lookupResult.getList().get(index);
+        } else {
+            Log.e(TAG, "getLabel() invalid array index");
+        }
         return item != null ? item.key : null;
     }
 
