@@ -111,11 +111,7 @@ public class LookupFragment extends BaseListFragment implements LookupListener, 
                 return;
             }
         }
-        String query = AppPrefs.getLastQuery();
-        searchView.setQuery(query, false);
-        if (viewModel != null) {
-            viewModel.lookupLastQuery();
-        }
+        searchView.setQuery(AppPrefs.getLastQuery(), false);
     }
 
     @Override
