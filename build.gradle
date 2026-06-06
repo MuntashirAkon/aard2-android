@@ -1,5 +1,5 @@
 plugins {
-    id 'com.android.application' version '8.7.3'
+    id 'com.android.application' version '8.9.2'
 }
 
 repositories {
@@ -12,19 +12,6 @@ repositories {
 
 android {
     compileSdk 35
-
-    packagingOptions {
-        exclude 'META-INF/LICENSE'
-        exclude 'META-INF/NOTICE'
-        project("slobj").file("exclude.txt").eachLine {
-            line ->
-                println line
-                if (line && line.trim() && !line.startsWith("#")) {
-                    exclude line.trim()
-                }
-        }
-    }
-
 
     lintOptions {
         abortOnError false
@@ -85,8 +72,6 @@ android {
 }
 
 dependencies {
-    api project(':slobj')
-
     implementation "com.google.android.material:material:1.12.0"
     implementation "androidx.appcompat:appcompat:1.7.0"
     // Fix duplicate classes issue in material
@@ -96,8 +81,9 @@ dependencies {
         }
     }
     implementation "androidx.webkit:webkit:1.12.1"
+    implementation 'com.github.MuntashirAkon:slobj-android:5d389c1dca'
 
-    api 'com.fasterxml.jackson.core:jackson-databind:2.11.1'
-    api 'com.fasterxml.jackson.core:jackson-core:2.11.1'
-    api 'com.fasterxml.jackson.core:jackson-annotations:2.11.1'
+    api 'com.fasterxml.jackson.core:jackson-databind:2.22.0'
+    api 'com.fasterxml.jackson.core:jackson-core:2.22.0'
+    api 'com.fasterxml.jackson.core:jackson-annotations:2.22'
 }

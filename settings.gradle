@@ -5,5 +5,3 @@ pluginManagement {
         mavenCentral()
     }
 }
-
-includeFlat 'slobj'
