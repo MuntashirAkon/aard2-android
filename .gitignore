@@ -1,5 +1,6 @@
 bin
 build
+release
 gen
 .gradle
 .classpath
@@ -7,6 +8,7 @@ gen
 .settings
 .idea
 *.iml
+*.hprof
 project.properties
 local.properties
 README.html
