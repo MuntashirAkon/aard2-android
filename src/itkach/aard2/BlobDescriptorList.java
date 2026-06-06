@@ -2,15 +2,14 @@ package itkach.aard2;
 
 import android.database.DataSetObservable;
 import android.database.DataSetObserver;
+import android.icu.compat.CollatorCompat;
+import android.icu.compat.RuleBasedCollatorCompat;
+import android.icu.compat.StringSearchCompat;
 import android.net.Uri;
 import android.text.TextUtils;
 import android.util.Log;
 
 import androidx.annotation.MainThread;
-
-import com.ibm.icu.text.Collator;
-import com.ibm.icu.text.RuleBasedCollator;
-import com.ibm.icu.text.StringSearch;
 
 import java.text.StringCharacterIterator;
 import java.util.AbstractList;
@@ -80,11 +79,11 @@ public class BlobDescriptorList extends AbstractList<BlobDescriptor> {
         setSort(order, ascending);
 
         try {
-            filterCollator = (RuleBasedCollator) Collator.getInstance(Locale.ROOT).clone();
+            filterCollator = CollatorCompat.clone(Locale.ROOT);
         } catch (CloneNotSupportedException e) {
             throw new RuntimeException(e);
         }
-        filterCollator.setStrength(Collator.PRIMARY);
+        filterCollator.setStrength(CollatorCompat.PRIMARY);
         filterCollator.setAlternateHandlingShifted(false);
     }
 
@@ -107,10 +106,10 @@ public class BlobDescriptorList extends AbstractList<BlobDescriptor> {
             this.filteredList.addAll(this.list);
         } else {
             for (BlobDescriptor bd : this.list) {
-                StringSearch stringSearch = new StringSearch(
+                StringSearchCompat stringSearch = new StringSearchCompat(
                         filter, new StringCharacterIterator(bd.key), filterCollator);
                 int matchPos = stringSearch.first();
-                if (matchPos != StringSearch.DONE) {
+                if (matchPos != StringSearchCompat.DONE) {
                     this.filteredList.add(bd);
                 }
             }
