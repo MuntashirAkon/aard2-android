@@ -1,5 +1,7 @@
 package itkach.aard2.widget;
 
+import static itkach.aard2.SlobHelper.SLOB_DOMAIN;
+
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
@@ -45,16 +47,15 @@ import itkach.aard2.article.ArticleCollectionActivity;
 import itkach.aard2.descriptor.BlobDescriptor;
 import itkach.aard2.prefs.ArticleViewPrefs;
 import itkach.aard2.prefs.UserStylesPrefs;
+import itkach.aard2.slob.SlobRequestHandler;
 import itkach.aard2.utils.StyleJsUtils;
 import itkach.aard2.utils.Utils;
 
 public class ArticleWebView extends SearchableWebView {
     public static final String TAG = ArticleWebView.class.getSimpleName();
 
-    public static final String LOCALHOST = SlobHelper.LOCALHOST;
-
     private static final Set<String> EXTERNAL_SCHEMES = new HashSet<String>() {{
-        add("https");
+        add("http");
         add("ftp");
         add("sftp");
         add("mailto");
@@ -67,8 +68,7 @@ public class ArticleWebView extends SearchableWebView {
     private boolean isExternal(Uri uri) {
         String scheme = uri.getScheme();
         String host = uri.getHost();
-
-        return EXTERNAL_SCHEMES.contains(scheme) || ("http".equals(scheme) && !LOCALHOST.equals(host));
+        return EXTERNAL_SCHEMES.contains(scheme) || ("https".equals(scheme) && !SLOB_DOMAIN.equals(host));
     }
 
     private SortedSet<String> styleTitles = new TreeSet<>();
@@ -80,6 +80,7 @@ public class ArticleWebView extends SearchableWebView {
     private final Timer timer;
     private final TimerTask applyStylePref;
 
+    private final SlobRequestHandler slobRequestHandler = new SlobRequestHandler();
     private boolean forceLoadRemoteContent;
 
     @JavascriptInterface
@@ -442,11 +443,14 @@ public class ArticleWebView extends SearchableWebView {
         @Override
         public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
             Uri uri = request.getUrl();
+            String host = uri.getHost();
+            if (SLOB_DOMAIN.equals(host) && uri.getPath() != null && uri.getPath().startsWith("/slob/")) {
+                return slobRequestHandler.handleRequest(request);
+            }
             if (uri.isRelative()) {
                 return null;
             }
-            String host = uri.getHost();
-            if (host == null || host.toLowerCase(Locale.ROOT).equals(LOCALHOST)) {
+            if (host == null || host.toLowerCase(Locale.ROOT).equals(SLOB_DOMAIN)) {
                 return null;
             }
             if (allowRemoteContent()) {
@@ -481,7 +485,7 @@ public class ArticleWebView extends SearchableWebView {
                 }
             }
 
-            if (scheme.equals("http") && host.equals(LOCALHOST) && uri.getQueryParameter("blob") == null) {
+            if (scheme.equals("https") && SLOB_DOMAIN.equals(host) && uri.getQueryParameter("blob") == null) {
                 Intent intent = new Intent(getContext(), ArticleCollectionActivity.class);
                 intent.setData(uri);
                 getContext().startActivity(intent);

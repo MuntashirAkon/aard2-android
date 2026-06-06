@@ -87,7 +87,7 @@ public class ArticleCollectionViewModel extends AndroidViewModel {
     @Nullable
     private BlobListWrapper createFromUri(@NonNull Uri articleUrl, @NonNull Intent intent) {
         String host = articleUrl.getHost();
-        if (!(host.startsWith("localhost") || host.startsWith(SlobHelper.LOCALHOST))) {
+        if (!host.startsWith(SlobHelper.SLOB_DOMAIN)) {
             return createFromIntent(intent);
         }
         BlobDescriptor bd = BlobDescriptor.fromUri(articleUrl);

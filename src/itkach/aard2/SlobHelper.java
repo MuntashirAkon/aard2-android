@@ -11,7 +11,6 @@ import androidx.annotation.WorkerThread;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -26,13 +25,12 @@ import itkach.aard2.descriptor.DescriptorStore;
 import itkach.aard2.descriptor.SlobDescriptor;
 import itkach.aard2.lookup.LookupResult;
 import itkach.aard2.prefs.AppPrefs;
-import itkach.aard2.slob.SlobServer;
+import itkach.aard2.slob.SlobRequestHandler;
 import itkach.slob.Slob;
 
 public final class SlobHelper {
     public static final String TAG = SlobHelper.class.getSimpleName();
-    public static final String LOCALHOST = "127.0.0.1";
-    public static final int PREFERRED_PORT = 8489;
+    public static final String SLOB_DOMAIN = "appassets.androidplatform.net";
 
     private static SlobHelper instance;
 
@@ -67,7 +65,6 @@ public final class SlobHelper {
     @NonNull
     public final LookupResult lastLookupResult;
 
-    private int port = -1;
     private volatile boolean initialized;
 
     private SlobHelper(@NonNull Application application) {
@@ -90,40 +87,6 @@ public final class SlobHelper {
             return;
         }
         initialized = true;
-        long t0 = System.currentTimeMillis();
-        int portCandidate = PREFERRED_PORT;
-        try {
-            SlobServer.startServer(LOCALHOST, portCandidate);
-            port = portCandidate;
-        } catch (IOException e) {
-            Log.w(TAG, String.format("Failed to start on preferred port %d", portCandidate), e);
-            Set<Integer> seen = new HashSet<>();
-            seen.add(PREFERRED_PORT);
-            Random rand = new Random();
-            int attemptCount = 0;
-            while (true) {
-                int value = 1 + (int) Math.floor((65535 - 1025) * rand.nextDouble());
-                portCandidate = 1024 + value;
-                if (seen.contains(portCandidate)) {
-                    continue;
-                }
-                attemptCount += 1;
-                seen.add(portCandidate);
-                Exception lastError;
-                try {
-                    SlobServer.startServer(LOCALHOST, portCandidate);
-                    port = portCandidate;
-                    break;
-                } catch (IOException e1) {
-                    lastError = e1;
-                    Log.w(TAG, String.format("Failed to start on port %d", portCandidate), e1);
-                }
-                if (attemptCount >= 20) {
-                    throw new RuntimeException("Failed to start web server", lastError);
-                }
-            }
-        }
-        Log.d(TAG, String.format("Started web server on port %d in %d ms", port, (System.currentTimeMillis() - t0)));
         // Load dictionaries, bookmarks and history
         dictionaries.load();
         bookmarks.load();
@@ -183,11 +146,11 @@ public final class SlobHelper {
 
     @NonNull
     public Uri getHttpUri(@NonNull Slob.Blob blob) {
-        // http://host:port/<auth>/<slob-id>/<key>?blob=<blob-id>#<fragment>
+        // https://appassets.androidplatform.net/slob/<slob-id>/<key>?blob=<blob-id>#<fragment>
         return new Uri.Builder()
-                .scheme("http")
-                .authority(LOCALHOST + ":" + port)
-                .appendPath(SlobServer.getAuthKey())
+                .scheme("https")
+                .authority(SLOB_DOMAIN)
+                .appendPath("slob")
                 .appendPath(blob.owner.getId().toString())
                 .appendPath(blob.key)
                 .appendQueryParameter("blob", blob.id)
@@ -261,7 +224,7 @@ public final class SlobHelper {
                 Slob slob = slobs[random.nextInt(slobs.length)];
                 int size = slob.size();
                 Slob.Blob blob = slob.get(random.nextInt(size));
-                String contentType = getMimeType(blob.getContentType());
+                String contentType = SlobRequestHandler.getMimeType(blob.getContentType());
                 if (allowedContentTypes.contains(contentType)) {
                     return blob;
                 }
@@ -305,11 +268,5 @@ public final class SlobHelper {
         if (!initialized) {
             throw new IllegalStateException("SlobHelper not initialized. Make sure to call init() first!");
         }
-    }
-
-    @NonNull
-    private static String getMimeType(@NonNull String contentType) {
-        int semiColon = contentType.indexOf(';');
-        return (semiColon == -1 ? contentType : contentType.substring(0, semiColon)).trim();
     }
 }
