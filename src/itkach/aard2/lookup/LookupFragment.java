@@ -2,6 +2,8 @@ package itkach.aard2.lookup;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -32,6 +34,9 @@ public class LookupFragment extends BaseListFragment implements LookupListener, 
     private SearchView searchView;
     private LookupResultAdapter listAdapter;
     private LookupViewModel viewModel;
+    private Handler mHandler;
+    @Nullable
+    private Runnable mSearchRunnable;
 
     @Override
     protected int getEmptyIcon() {
@@ -48,6 +53,7 @@ public class LookupFragment extends BaseListFragment implements LookupListener, 
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
         viewModel = new ViewModelProvider(this).get(LookupViewModel.class);
+        mHandler = new Handler(Looper.getMainLooper());
         Application app = (Application) requireActivity().getApplication();
         app.addLookupListener(this);
     }
@@ -139,6 +145,7 @@ public class LookupFragment extends BaseListFragment implements LookupListener, 
     public void onDestroy() {
         listAdapter = null;
         Application app = (Application) requireActivity().getApplication();
+        cancelPendingSearch();
         app.removeLookupListener(this);
         super.onDestroy();
     }
@@ -160,15 +167,33 @@ public class LookupFragment extends BaseListFragment implements LookupListener, 
 
     @Override
     public boolean onQueryTextSubmit(String query) {
-        return false;
+        cancelPendingSearch();
+
+        // Trigger immediately
+        if (viewModel != null) {
+            viewModel.lookup(query);
+        }
+        return true;
     }
 
     @Override
     public boolean onQueryTextChange(String newText) {
-        Log.d(TAG, "new query text: " + newText);
-        if (viewModel != null) {
-            viewModel.lookup(newText);
-        }
+        cancelPendingSearch();
+
+        // Schedule the new search task
+        mSearchRunnable = () -> {
+            if (viewModel != null) {
+                viewModel.lookup(newText);
+            }
+        };
+        mHandler.postDelayed(mSearchRunnable, 150);
         return true;
+    }
+
+    private void cancelPendingSearch() {
+        if (mSearchRunnable != null) {
+            mHandler.removeCallbacks(mSearchRunnable);
+            mSearchRunnable = null;
+        }
     }
 }
